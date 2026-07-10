@@ -1,0 +1,61 @@
+name: 运行 Napcat（支持交互）
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_tmate:
+        description: '启用 tmate 交互终端（SSH/Web 连接）'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      napcat_action:
+        description: '执行操作：install（安装）, run（仅运行）'
+        required: true
+        default: 'install'
+        type: choice
+        options:
+          - install
+          - run
+
+jobs:
+  napcat:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---------- 可选：启用 tmate 交互 ----------
+      - name: 启动 tmate 交互终端
+        if: github.event.inputs.enable_tmate == 'true'
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 60   # 防止长时间占用，可自行调整
+        with:
+          limit-access-to-actor: true   # 仅限触发者访问
+
+      # ---------- 安装 NapCat ----------
+      - name: 安装 NapCat
+        if: github.event.inputs.napcat_action == 'install' || github.event.inputs.napcat_action == ''
+        run: |
+          curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh
+          bash napcat.sh
+        # 如果安装过程需要交互，而你没有启用 tmate，可以提前用 expect 自动化
+        # 但这里我们推荐启用 tmate 后手动进行安装
+
+      # ---------- 启动 NapCat（后台运行并保持） ----------
+      - name: 启动 NapCat 并保持运行
+        run: |
+          # 如果 napcat 不在 PATH，请调整路径（例如 ~/NapCat/napcat）
+          nohup napcat > napcat.log 2>&1 &
+          sleep 3
+          if pgrep -f "napcat" > /dev/null; then
+            echo "NapCat 已启动，日志输出到 napcat.log"
+          else
+            echo "启动失败，请检查 napcat.log"
+            cat napcat.log
+            exit 1
+          fi
+          # 保持作业运行（tail 日志）
+          tail -f napcat.log
