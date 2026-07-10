@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       enable_tmate:
-        description: '启用 tmate 交互终端（Web/SSH）'
+        description: '启用 tmate 交互终端（Web 方式）'
         required: true
         default: 'true'
         type: choice
@@ -27,26 +27,23 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      # ---------- 关键修改：tmate 交互（Web 方式，无需 SSH 公钥） ----------
-      - name: 启动 tmate 交互终端（Web 访问）
+      # ========== 关键：强制使用 Web 终端，无需 SSH 公钥 ==========
+      - name: 启动 tmate 交互终端（Web）
         if: github.event.inputs.enable_tmate == 'true'
         uses: mxschmitt/action-tmate@v3
         timeout-minutes: 60
         with:
-          # 强制启用 Web 终端，不依赖 SSH 公钥
-          web: true
-          # 仅限触发工作流的人访问（增强安全性）
+          web: true                 # ← 这一行必须加！
           limit-access-to-actor: true
 
-      # ---------- 安装 NapCat ----------
+      # ---------- 安装 NapCat（可选，如果要在 tmate 中手动安装则把 if 改成 false） ----------
       - name: 安装 NapCat
         if: github.event.inputs.napcat_action == 'install'
         run: |
           curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh
           bash napcat.sh
-        # 如果你希望在 tmate 会话中手动安装，可以将本步骤禁用（将 if 改为 false）
 
-      # ---------- 启动 NapCat ----------
+      # ---------- 启动 NapCat 并保持运行 ----------
       - name: 启动 NapCat 并保持运行
         run: |
           nohup napcat > napcat.log 2>&1 &
